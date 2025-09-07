@@ -1,0 +1,6 @@
+selenium>=4.24.0,<5
+python-dotenv>=1.0,<2
+pytest>=8,<9
+ruff>=0.5,<1
+black>=24,<25
+mypy>=1.10,<2
