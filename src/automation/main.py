@@ -1,11 +1,6 @@
 """
-Minimal Selenium template for filling a web form and uploading a file.
-Uses Selenium Manager (built into Selenium 4.6+) to auto-manage drivers.
-Works with Firefox (default) or Chrome/Chromium if installed.
-
-Before running:
-  1) Create a virtualenv and install requirements (see README.md)
-  2) Copy .env.example to .env and edit values
+Automated job application clicker for Stefanini site.
+Now directly loads a jobdetails.asp link and clicks Apply.
 """
 
 from __future__ import annotations
@@ -27,20 +22,25 @@ class Settings:
     url: str
     username: str | None
     password: str | None
+    email: str | None             # <-- added this line
     resume_file: pathlib.Path
-    browser: str = "firefox"  # "firefox" or "chrome"
+    browser: str = "firefox"
     headless: bool = False
-
 
 def get_settings() -> Settings:
     load_dotenv()
-    url = os.getenv("TARGET_URL", "https://example.com/form")
+    url = os.getenv(
+        "TARGET_URL",
+        "https://jobs2.smartsearchonline.com/stefanini/jobs/jobdetails.asp?jo_num=61331&apply=yes&country=Phillip&proximity=25&",
+    )
     username = os.getenv("USERNAME")
     password = os.getenv("PASSWORD")
+    email = os.getenv("EMAIL")  # <-- added this
     resume_file = pathlib.Path(os.getenv("RESUME_FILE", "data/resume.pdf")).expanduser().resolve()
     browser = os.getenv("BROWSER", "firefox").lower()
     headless = os.getenv("HEADLESS", "false").lower() == "true"
-    return Settings(url, username, password, resume_file, browser, headless)
+    return Settings(url, username, password, email, resume_file, browser, headless)
+
 
 
 def create_driver(browser: str = "firefox", headless: bool = False):
@@ -48,8 +48,6 @@ def create_driver(browser: str = "firefox", headless: bool = False):
         options = webdriver.ChromeOptions()
         if headless:
             options.add_argument("--headless=new")
-        # For Wayland sessions on Linux, you can uncomment the next line if needed
-        # options.add_argument("--ozone-platform=wayland")
         return webdriver.Chrome(options=options)
 
     # Default to Firefox
@@ -70,30 +68,36 @@ def main() -> None:
     wait = WebDriverWait(driver, 20)
 
     try:
+        # Step 1: Go directly to the job details page
         driver.get(cfg.url)
 
-        # Wait for the "Job Details" button and click it
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//a[text()='Job Details']"))).click()
+        # Step 2: Wait for and click Apply
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#cmdApply"))).click()
 
-        # Example: wait for a field and type into it
-        # Adjust selectors to match your target site!
-        # name_input = wait.until(EC.element_to_be_clickable((By.NAME, "full_name")))
-        # name_input.send_keys("Jane Doe")
+        # Step 3a: Fill in the email
+        email_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#email")))
+        email_input.clear()
+        email_input.send_keys(cfg.email)
+        if not cfg.email:
+            raise SystemExit("EMAIL is not set in your .env. Add EMAIL=\"you@example.com\" and try again.")
 
-        # Example: file upload via <input type="file">
-        # file_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']")))
-        # file_input.send_keys(str(cfg.resume_file))
 
-        # Example: click submit
-        # submit_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']")))
-        # submit_btn.click()
+        # Step 3b: Check the "Apply as guest" checkbox
+        guest_checkbox = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#asguest")))
+        if not guest_checkbox.is_selected():
+            guest_checkbox.click()
 
-        # Keep the window for a short while for inspection in non-headless mode
-        time.sleep(2)
+        # Step 3c: Click the Continue button
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#creataccountbutton"))).click()
 
-        print("✅ Script finished (template). Edit selectors to suit your form.")
+        # Keep window open briefly in non-headless mode
+        time.sleep(3)
+
+        print("✅ Apply flow completed: email filled, guest checked, continued.")
     finally:
         driver.quit()
+
+
 
 
 if __name__ == "__main__":
